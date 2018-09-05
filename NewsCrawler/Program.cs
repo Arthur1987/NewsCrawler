@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using ConstantDefine.Enums;
 using NewsAmParser;
 using NewsAmParser.DataStructure;
@@ -8,18 +9,18 @@ namespace NewsCrawler
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             AppSetting app = new AppSetting
             {
                 NewsAm = new NewsAm
                 {
-                    ArmenianNews = "armenia/allthemes/2018/09/01/",
-                    BaseAddress = "https://news.am/eng/news/"
+                    ArmenianNews = "eng/news/armenia/allthemes/2018/09/01/",
+                    BaseAddress = "https://news.am/"
                 }
             };
             Parser parser  = new Parser(app);
-            parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora).GetAwaiter().GetResult();
+            await parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora);
             //string basePath = System.AppContext.BaseDirectory;
             //IConfigurationRoot configuration = new ConfigurationBuilder()
             //    .SetBasePath(basePath)

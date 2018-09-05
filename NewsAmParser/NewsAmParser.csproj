@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ConstantDefine\ConstantDefine.csproj" />
+    <ProjectReference Include="..\ParserHelper\ParserHelper.csproj" />
     <ProjectReference Include="..\RestApi.Net.Core\RestApi.Net.Core.csproj" />
   </ItemGroup>
 
