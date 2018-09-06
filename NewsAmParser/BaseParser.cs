@@ -1,7 +1,6 @@
 ﻿using ConstantDefine.Enums;
 using NewsAmParser.DataStructure;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Collections.Async;
 
 namespace NewsAmParser
 {
@@ -14,6 +13,6 @@ namespace NewsAmParser
             AppSetting = appSetting;
         }
 
-        public abstract Task<IEnumerable<ResponseArticleModel>> ParseAsync(NewsCategoryEnum category);
+        public abstract IAsyncEnumerable<ResponseArticleModel> ParseAsync(NewsCategoryEnum category);
     }
 }

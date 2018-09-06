@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Collections.Async;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using ConstantDefine.Enums;
 using NewsAmParser;
 using NewsAmParser.DataStructure;
-using NewsAmParser = NewsAmParser.Parser;
 
 namespace NewsCrawler
 {
@@ -20,7 +21,12 @@ namespace NewsCrawler
                 }
             };
             Parser parser  = new Parser(app);
-            await parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora);
+            var result  =  parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora);
+            var listOfItemns = new List<ResponseArticleModel>();
+            await result.ForEachAsync(item => {
+                listOfItemns.Add(item);
+            });
+            Console.WriteLine($"Total articles count : {listOfItemns.Count}");
             //string basePath = System.AppContext.BaseDirectory;
             //IConfigurationRoot configuration = new ConfigurationBuilder()
             //    .SetBasePath(basePath)

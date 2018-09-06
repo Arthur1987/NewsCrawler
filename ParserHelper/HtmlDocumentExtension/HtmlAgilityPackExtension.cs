@@ -7,12 +7,12 @@ namespace ParserHelper.HtmlDocumentExtension
 {
     public static class HtmlAgilityPackExtension
     {
-        public static IEnumerable<HtmlNode> GetElementsWithClass(this HtmlDocument docucment, string elemenName, string className)
+        public static IEnumerable<HtmlNode> GetElementsWithClass(this HtmlDocument document, string elemenName, string className)
         {
 
             Regex regex = new Regex("\\b" + Regex.Escape(className) + "\\b", RegexOptions.Compiled);
 
-            var result = docucment
+            var result = document
                 .DocumentNode
                 .ChildNodes
                 .Where(n => n.NodeType == HtmlNodeType.Element)
@@ -21,9 +21,23 @@ namespace ParserHelper.HtmlDocumentExtension
             return result;
         }
 
-        public static string GetXPath(this HtmlDocument docucment, string elementName, string className)
+        public static string GetXPath(this HtmlDocument document, string elementName, string className = null)
         {
-            return $"//{elementName}[@class = '{className}']";
+            return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" :  $"[@class = '{className}']")}";
+        }
+
+        public static string GetInnerTextByClassName(this HtmlDocument document, string elementName, string className)
+        {
+            return document.DocumentNode
+                           .SelectSingleNode(document.GetXPath(elementName, className))
+                           .InnerText;
+        }
+
+        public static string GetAttribiuteValueByClassName(this HtmlDocument document, string elementName, string className, string attributeName)
+        {
+            return document.DocumentNode
+                .SelectSingleNode(document.GetXPath(elementName, className))
+                .Attributes[attributeName].Value;
         }
     }
 }
