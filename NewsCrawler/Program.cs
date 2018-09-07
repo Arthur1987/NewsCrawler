@@ -12,11 +12,12 @@ namespace NewsCrawler
     {
         static async Task Main(string[] args)
         {
+            var currentDate = DateTime.Now.AddDays(-1);
             AppSetting app = new AppSetting
             {
                 NewsAm = new NewsAm
                 {
-                    ArmenianNews = "eng/news/armenia/allthemes/2018/09/01/",
+                    ArmenianNews = $"eng/news/allregions/allthemes/{currentDate.Year}/{currentDate.Month}/{currentDate.Day}",
                     BaseAddress = "https://news.am/"
                 }
             };

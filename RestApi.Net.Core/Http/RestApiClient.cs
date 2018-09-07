@@ -41,11 +41,11 @@ namespace RestApi.Net.Core.Http
         /// <param name="contenType">Media type of content</param>
         /// <param name="acceptType">Media type of accept</param>
         public RestApiClient(string baseAddress, MediaType contenType, MediaType acceptType, IWebProxy proxy = null)
-            : this(baseAddress, proxy)
         {
             
             _contenType = contenType;
             _acceptType = acceptType;
+            _client = new HttpClient(GetHttpClientHandler(proxy), true) { BaseAddress = new UriBuilder(baseAddress).Uri };
             AddDefaultHeaders();
         }
 
@@ -54,10 +54,10 @@ namespace RestApi.Net.Core.Http
         /// </summary>
         /// <param name="baseAddress">base Address</param>
         /// <param name="proxy">proxy</param>
-        public RestApiClient(string baseAddress, IWebProxy proxy = null)
+        public RestApiClient(string baseAddress, IWebProxy proxy = null) 
+            : this(baseAddress, MediaType.Json, MediaType.Json, proxy)
         {
-            _client = new HttpClient(GetHttpClientHandler(proxy), true) {BaseAddress = new UriBuilder(baseAddress).Uri};
-            AddDefaultHeaders();
+            
         }
 
         /// <summary>
@@ -177,15 +177,9 @@ namespace RestApi.Net.Core.Http
                 throw new ArgumentNullException(nameof(requestUri));
             }
 
-            HttpResponseMessage response = null;
-            try
+            using (var response = await _client.PutAsync(requestUri, null).ConfigureAwait(false))
             {
-                response = await _client.PutAsync(requestUri, null).ConfigureAwait(false);
                 response.EnsureSuccessResponseStatusCode();
-            }
-            finally
-            {
-                response?.Dispose();
             }
         }
 
@@ -244,17 +238,29 @@ namespace RestApi.Net.Core.Http
         /// <returns></returns>
         public async Task<string> GetContentAsStringAsync(string requestUri)
         {
-            using (var response = await _client.GetAsync(requestUri))
+            try
             {
-                using (var content = response.Content)
+                using (var response = await _client.GetAsync(requestUri))
                 {
-                    var responseStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
-                    using (var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress))
-                    using (var streamReader = new StreamReader(decompressedStream))
+                    if (response.StatusCode == HttpStatusCode.Moved)
                     {
-                        return await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                        return await GetContentAsStringAsync(response.Headers.Location.AbsolutePath);
+                    }
+                    using (var content = response.Content)
+                    {
+                        var responseStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+                        using (var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress))
+                        using (var streamReader = new StreamReader(decompressedStream))
+                        {
+                            return await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                        }
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
             }
         }
 

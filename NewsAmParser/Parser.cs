@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using ParserHelper;
 using ParserHelper.HtmlDocumentExtension;
 
 namespace NewsAmParser
@@ -23,10 +24,12 @@ namespace NewsAmParser
             {
                 Stopwatch watch = new Stopwatch();
                 watch.Start();
-                var document = await LoadHtmlLocument(GetUri(category));
+                var result = GetUri(category).GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
+                var document = await LoadHtmlLocument(result.Item2, result.Item1);
                 foreach (var link in LoadCurrentPageLinks(document))
                 {
-                    var currentPage = await LoadHtmlLocument(link);
+                    result = link.GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
+                    var currentPage = await LoadHtmlLocument(result.Item2,result.Item1);
                     await yield.ReturnAsync(LoadArticle(currentPage));
                 }
 
@@ -46,12 +49,12 @@ namespace NewsAmParser
             }
         }
 
-        private async Task<HtmlDocument> LoadHtmlLocument(string requestUri)
+        private async Task<HtmlDocument> LoadHtmlLocument(string baseAddress, string requestUri)
         {
             try
             {
                 var document = new HtmlDocument();
-                using (var restApi = new RestApiClient(AppSetting.NewsAm.BaseAddress))
+                using (var restApi = new RestApiClient(baseAddress))
                 {
                     restApi.SetCustomHeader("Accept", "text/html,application/xhtml+xml,application/xml")
                         .SetCustomHeader("Accept-Encoding", "gzip, deflate")
@@ -71,6 +74,7 @@ namespace NewsAmParser
             }
         }
 
+        
 
         private IEnumerable<string> LoadCurrentPageLinks(HtmlDocument document)
         {
