@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using System.Net;
 
 namespace ParserHelper.HtmlDocumentExtension
 {
@@ -21,23 +22,55 @@ namespace ParserHelper.HtmlDocumentExtension
             return result;
         }
 
-        public static string GetXPath(this HtmlDocument document, string elementName, string className = null)
+        public static string GetXPathByClassName(this HtmlDocument document, string elementName, string className = null)
         {
             return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" :  $"[@class = '{className}']")}";
         }
 
+        public static string GetXPathById(this HtmlDocument document, string elementName, string className = null)
+        {
+            return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" :  $"[@id = '{className}']")}";
+        }
+
         public static string GetInnerTextByClassName(this HtmlDocument document, string elementName, string className)
         {
-            return document.DocumentNode
-                           .SelectSingleNode(document.GetXPath(elementName, className))
-                           .InnerText;
+            var result = document.DocumentNode
+                                 .SelectSingleNode(document.GetXPathByClassName(elementName, className))
+                                 .InnerText;
+
+            return WebUtility.HtmlDecode(result);
         }
 
         public static string GetAttribiuteValueByClassName(this HtmlDocument document, string elementName, string className, string attributeName)
         {
+            var result = document.DocumentNode
+                                 .SelectSingleNode(document.GetXPathByClassName(elementName, className))
+                                 .Attributes[attributeName].Value;
+
+            return WebUtility.HtmlDecode(result);
+        }
+
+        public static string GetInnerTextById(this HtmlDocument document, string elementName, string id)
+        {
             return document.DocumentNode
-                .SelectSingleNode(document.GetXPath(elementName, className))
-                .Attributes[attributeName].Value;
+                .SelectSingleNode(document.GetXPathById(elementName, id))
+                .InnerText;
+        }
+
+        public static string GetInnerTextByElementName(this HtmlNode htmlNode, string elementName)
+        {
+            var result = htmlNode.ChildNodes.FirstOrDefault(x => x.Name.Equals(elementName))?.InnerText;
+
+            return WebUtility.HtmlDecode(result);
+        }
+
+        public static string GetAttribiuteValueById(this HtmlDocument document, string elementName, string id, string attributeName)
+        {
+            var result = document.DocumentNode
+                                 .SelectSingleNode(document.GetXPathById(elementName, id))
+                                 .Attributes[attributeName].Value;
+
+            return WebUtility.HtmlDecode(result);
         }
     }
 }

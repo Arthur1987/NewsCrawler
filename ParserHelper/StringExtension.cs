@@ -7,7 +7,7 @@ namespace ParserHelper
     {
         public static (string, string) GetRequestAndBaseAddress(this string requestUri, string baseAddress)
         {
-            if (Regex.IsMatch($"{Uri.UriSchemeHttps}:{requestUri}", @"^(http|https):\/\/|[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}(:[0-9]{1,5})?(\/.*)?$/ix"))
+            if (requestUri.BaseAddressChanged())
             {
                 var correctUri = $"{Uri.UriSchemeHttps}:{requestUri}";
 
@@ -19,7 +19,19 @@ namespace ParserHelper
                 var uri = new Uri(correctUri);
                 return (uri.AbsolutePath, new Uri(correctUri).Host);
             }
+
             return (requestUri, baseAddress);
         }
+
+        public static bool BaseAddressChanged(this string requestUri)
+        {
+            if (Regex.IsMatch($"{Uri.UriSchemeHttps}:{requestUri}", @"^(http|https):\/\/|[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,6}(:[0-9]{1,5})?(\/.*)?$/ix"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
     }
 }
