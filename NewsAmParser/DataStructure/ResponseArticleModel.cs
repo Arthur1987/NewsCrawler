@@ -3,13 +3,9 @@ using System;
 
 namespace NewsAmParser.DataStructure
 {
-    public class ResponseArticleModel
+    public class ResponseArticleModel : BaseArticleInfoModel
     {
-        public string Title { get; set; }
-
         public NewsCategoryEnum Category { get; set; }
-
-        public DateTime PublishedDateTime { get; set; }
 
         public DateTime ParseDateTime { get; set; }
 

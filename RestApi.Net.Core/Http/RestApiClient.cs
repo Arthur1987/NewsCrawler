@@ -1,4 +1,8 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using RestApi.Net.Core.Constants;
+using RestApi.Net.Core.Enums;
+using RestApi.Net.Core.Extensions;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
@@ -6,10 +10,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using RestApi.Net.Core.Constants;
-using RestApi.Net.Core.Enums;
-using RestApi.Net.Core.Extensions;
 
 namespace RestApi.Net.Core.Http
 {
@@ -23,7 +23,7 @@ namespace RestApi.Net.Core.Http
 
         // Flag: Has Dispose already been called?
         private bool _disposed;
-        private readonly HttpClient _client;
+        private HttpClient _client;
         private MediaType _contenType;
         private MediaType _acceptType;
         private JsonSerializerSettings _jsonSerializerSettings;
@@ -238,14 +238,16 @@ namespace RestApi.Net.Core.Http
         /// <returns></returns>
         public async Task<string> GetContentAsStringAsync(string requestUri)
         {
+            HttpResponseMessage response = null;
             try
             {
-                using (var response = await _client.GetAsync(requestUri))
+                using (response = await _client.GetAsync(requestUri))
                 {
                     if (response.StatusCode == HttpStatusCode.Moved)
                     {
-                        return await GetContentAsStringAsync(response.Headers.Location.AbsolutePath);
+                        return await GetContentAsStringAsync(response.RequestMessage.RequestUri.LocalPath);
                     }
+
                     using (var content = response.Content)
                     {
                         var responseStream = await content.ReadAsStreamAsync().ConfigureAwait(false);
@@ -261,6 +263,11 @@ namespace RestApi.Net.Core.Http
             {
                 Console.WriteLine(e);
                 throw;
+            }
+            finally
+            {
+                response?.Content?.Dispose();
+                response?.Dispose();
             }
         }
 
@@ -473,7 +480,8 @@ namespace RestApi.Net.Core.Http
                 Proxy = proxy ?? WebRequest.DefaultWebProxy,
                 UseProxy = true,
                 UseDefaultCredentials = useDefault,
-                PreAuthenticate = true
+                PreAuthenticate = true,
+                AllowAutoRedirect = false
             };
         }
 

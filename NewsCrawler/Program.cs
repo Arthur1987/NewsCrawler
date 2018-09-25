@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Async;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using ConstantDefine.Enums;
 using NewsAmParser;
@@ -12,21 +13,36 @@ namespace NewsCrawler
     {
         static async Task Main(string[] args)
         {
-            var currentDate = DateTime.Now.AddDays(-1);
-            AppSetting app = new AppSetting
-            {
-                NewsAm = new NewsAm
-                {
-                    ArmenianNews = $"eng/news/allregions/allthemes/{currentDate.Year}/{currentDate.Month}/{currentDate.Day}",
-                    BaseAddress = "https://news.am/"
-                }
-            };
-            Parser parser  = new Parser(app);
-            var result  =  parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora);
+            //HtmlWeb
+
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+            var currentDate = DateTime.Now;
+            int year = DateTime.Now.Year;
+            DateTime firstDay = new DateTime(year, 1, 1);
             var listOfItemns = new List<ResponseArticleModel>();
-            await result.ForEachAsync(item => {
-                listOfItemns.Add(item);
-            });
+            while (currentDate >= firstDay)
+            {
+                AppSetting app = new AppSetting
+                {
+                    NewsAm = new NewsAm
+                    {
+                        ArmenianNews = $"eng/news/allregions/allthemes/{firstDay.Year}/{firstDay.Month:D2}/{firstDay.Day:D2}",
+                        BaseAddress = "https://news.am/"
+                    }
+                };
+
+                Parser parser = new Parser(app);
+                var result = parser.ParseAsync(NewsCategoryEnum.ArmenianDiaspora);
+
+                await result.ForEachAsync(item => {
+                    Console.WriteLine(item.PublishedDateTimeUtc);
+                    listOfItemns.Add(item);
+                });
+                firstDay = firstDay.AddDays(1);
+            }
+            watch.Stop();
+            Console.WriteLine(watch.Elapsed.Seconds);
             Console.WriteLine($"Total articles count : {listOfItemns.Count}");
             //string basePath = System.AppContext.BaseDirectory;
             //IConfigurationRoot configuration = new ConfigurationBuilder()

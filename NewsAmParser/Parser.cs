@@ -1,6 +1,8 @@
 ﻿using ConstantDefine.Enums;
 using HtmlAgilityPack;
 using NewsAmParser.DataStructure;
+using ParserHelper;
+using ParserHelper.HtmlDocumentExtension;
 using RestApi.Net.Core.Http;
 using System;
 using System.Collections.Async;
@@ -9,8 +11,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using ParserHelper;
-using ParserHelper.HtmlDocumentExtension;
 
 namespace NewsAmParser
 {
@@ -23,19 +23,32 @@ namespace NewsAmParser
         {
             return new AsyncEnumerable<ResponseArticleModel>(async yield =>
             {
-                Stopwatch watch = new Stopwatch();
-                watch.Start();
-                var result = GetUri(category).GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
-                var document = await LoadHtmlDocument(result.Item2, result.Item1);
-                foreach (var link in LoadCurrentPageLinks(document))
+                try
                 {
-                    result = link.GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
-                    var currentPage = await LoadHtmlDocument(result.Item2,result.Item1);
-                    await yield.ReturnAsync(LoadArticle(currentPage, link.BaseAddressChanged()));
-                }
+                    Stopwatch watch = new Stopwatch();
+                    watch.Start();
+                    var result = GetUri(category).GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
+                    var document = await LoadHtmlDocument(result.Item2, result.Item1);
+                    foreach (var baseArticle in LoadCurrentPageLinks(document))
+                    {
+                        try
+                        {
+                            var currentPage = await LoadHtmlDocument(baseArticle.BaseAddress, baseArticle.Address);
+                            await yield.ReturnAsync(LoadArticle(currentPage, AppSetting.NewsAm.BaseAddress != baseArticle.BaseAddress, baseArticle));
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e);
+                        }
+                    }
 
-                watch.Stop();
-                Console.WriteLine(watch.Elapsed.Seconds);
+                    watch.Stop();
+                    Console.WriteLine(watch.Elapsed.Seconds);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.StackTrace);
+                }
             });
         }
 
@@ -61,7 +74,7 @@ namespace NewsAmParser
                         .SetCustomHeader("Accept-Encoding", "gzip, deflate")
                         .SetCustomHeader("User-Agent",
                             "Mozilla/5.0 (Windows NT 6.2; WOW64; rv:19.0) Gecko/20100101 Firefox/19.0")
-                        .SetCustomHeader("Accept-Charset", "ISO-8859-1");
+                        .SetCustomHeader("Accept-Charset", "utf-8");
                     var content = await restApi.GetContentAsStringAsync(requestUri);
                     document.LoadHtml(content);
                 }
@@ -76,48 +89,105 @@ namespace NewsAmParser
         }
         
 
-        private IEnumerable<string> LoadCurrentPageLinks(HtmlDocument document)
+        private IEnumerable<BaseArticleInfoModel> LoadCurrentPageLinks(HtmlDocument document)
         {
-            IEnumerable<string> urls = document.DocumentNode
-                                               .SelectNodes(document.GetXPathByClassName("a", "photo-link"))
-                                               .Select(x => x.Attributes["href"].Value);
-            return urls;
-        }
-
-        private ResponseArticleModel LoadArticle(HtmlDocument document, bool isSubdomain)
-        {
-            return isSubdomain ? LoadSubDomainArticle(document, CultureInfo.InvariantCulture) : LoadMainArticle(document); //CultureInfo.CreateSpecificCulture("HY") "dd MMMM, yyyy  HH:mm",
-        }
-
-        private ResponseArticleModel LoadMainArticle(HtmlDocument document)
-        {
-            ResponseArticleModel article = new ResponseArticleModel
+            var articleNodes = document.DocumentNode
+                                       .SelectSingleNode("//div[contains(@class, 'articles-list') and contains(@class, 'casual')]")
+                                       .ChildNodes
+                                       .Where(x => x.Name == "article");
+            foreach (var item in articleNodes)
             {
-                Title = document.GetInnerTextByClassName("div", "article-title"),
-                PublishedDateTime = DateTimeOffset.ParseExact(document.GetAttribiuteValueByClassName("div", "time", "content"), "yyyy-MM-ddzHH:mm:ss", CultureInfo.InvariantCulture).UtcDateTime,
-                Content = GenerateContent(document, "span", "article-body", "p")
-            };
-
-            return article;
+                var title = item.SelectSingleNode(".//div[@class='title']/a");
+                var result = title.Attributes["href"].Value.GetRequestAndBaseAddress(AppSetting.NewsAm.BaseAddress);
+                if (AppSetting.NewsAm.BaseAddress == result.Item2)
+                {
+                    BaseArticleInfoModel article = new BaseArticleInfoModel
+                    {
+                        Title = title.InnerText,
+                        BaseAddress = result.Item2,
+                        Address = result.Item1,
+                        PublishedDateTimeUtc =
+                            DateTimeOffset
+                                .ParseExact(
+                                    item.SelectSingleNode(".//div[@class='date']/time").Attributes["datetime"].Value,
+                                    "yyyy-MM-ddzHH:mm:ss", CultureInfo.InvariantCulture).UtcDateTime
+                    };
+                    yield return article;
+                }
+            }
+                    
         }
 
-
-        private ResponseArticleModel LoadSubDomainArticle(HtmlDocument document, CultureInfo cultureInfo)
+        private ResponseArticleModel LoadArticle(HtmlDocument document, bool isSubdomain, BaseArticleInfoModel baseArticle)
         {
-            ResponseArticleModel article = new ResponseArticleModel
-            {
-                Title = document.DocumentNode.SelectSingleNode(document.GetXPathById("div", "opennews")).GetInnerTextByElementName("h1"),
-                PublishedDateTime = DateTimeOffset.ParseExact(document.GetInnerTextByClassName("div", "time"), "MMMM dd, yyyy  HH:mm", cultureInfo).UtcDateTime,
-                Content = GenerateContent(document, "div", "opennewstext", "p")
-            };
-
-            return article;
+            return isSubdomain ? LoadSubDomainArticle(document, CultureInfo.InvariantCulture, baseArticle) : LoadMainArticle(document, baseArticle); //CultureInfo.CreateSpecificCulture("HY") "dd MMMM, yyyy  HH:mm",
         }
 
-        public string GenerateContent(HtmlDocument document, string parentElement, string parentElementClassName, string childElement)
+        private ResponseArticleModel LoadMainArticle(HtmlDocument document, BaseArticleInfoModel baseArticle)
+        {
+            try
+            {
+
+                ResponseArticleModel article = new ResponseArticleModel
+                {
+                    Title = baseArticle.Title,
+                    PublishedDateTimeUtc = baseArticle.PublishedDateTimeUtc,
+                    ParseDateTime = DateTime.UtcNow,
+                    Content = GenerateContent(document, "span", "p", "article-body")
+                };
+
+                return article;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+
+
+        private ResponseArticleModel LoadSubDomainArticle(HtmlDocument document, CultureInfo cultureInfo, BaseArticleInfoModel baseArticle)
+        {
+            try
+            {
+                ResponseArticleModel article = new ResponseArticleModel
+                {
+                    Title = document.DocumentNode.SelectSingleNode(document.GetXPathById("div", "opennews")).SelectSingleNode("//h1").InnerText,
+                        //.GetInnerTextByElementName("h1"),
+                    PublishedDateTimeUtc = TryToGetPublisheDateTime(document, cultureInfo),
+                    Content = GenerateContent(document, "div", "p", "opennewstext", false)
+                };
+
+                return article;
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+        }
+
+        private DateTime TryToGetPublisheDateTime(HtmlDocument document, CultureInfo cultureInfo)
+        {
+            var timeDiv = document.DocumentNode.SelectSingleNode(document.GetXPathByClassName("div", "time"));
+            if (timeDiv != null)
+            {
+                return DateTimeOffset.ParseExact(document.GetInnerTextByClassName("div", "time"), "MMMM d, yyyy HH:mm", cultureInfo)
+                                     .UtcDateTime;
+            }
+            else
+            {
+                string timeComponent = document.GetInnerTextByClassName("span", "time").Trim();
+                string dateComponent = document.GetInnerTextByClassName("span", "date").Trim();
+                string datetimeText = $"{dateComponent} {timeComponent}".Trim();
+                
+                return DateTimeOffset.ParseExact(datetimeText, "z, MMMM d, yyyy HH:mm", cultureInfo).UtcDateTime;
+
+            }
+        }
+
+        public string GenerateContent(HtmlDocument document, string parentElement,  string childElement, string parentElementAttribute, bool isClass = true)
         {
             var paragraphs = document.DocumentNode
-                                     .SelectSingleNode(document.GetXPathByClassName(parentElement, parentElementClassName))
+                                     .SelectSingleNode(isClass ?  document.GetXPathByClassName(parentElement, parentElementAttribute) : document.GetXPathById(parentElement, parentElementAttribute))
                                      .Elements(childElement);
 
             return string.Join(" ", paragraphs.Select(x => x.InnerText)) ;

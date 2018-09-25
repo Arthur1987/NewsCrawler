@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace ParserHelper
@@ -17,7 +18,7 @@ namespace ParserHelper
                 }
 
                 var uri = new Uri(correctUri);
-                return (uri.AbsolutePath, new Uri(correctUri).Host);
+                return ($"{uri.AbsolutePath}", $"{Uri.UriSchemeHttps}://{new Uri(correctUri).Host}");
             }
 
             return (requestUri, baseAddress);

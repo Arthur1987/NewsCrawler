@@ -27,6 +27,11 @@ namespace ParserHelper.HtmlDocumentExtension
             return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" :  $"[@class = '{className}']")}";
         }
 
+        public static string GetXPathByClassName(this HtmlDocument document, string elementName, string className, string childElement)
+        {
+            return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" : $"[@class = '{className}']/{childElement}")}";
+        }
+
         public static string GetXPathById(this HtmlDocument document, string elementName, string className = null)
         {
             return $"//{elementName}{(string.IsNullOrEmpty(className) ? "" :  $"[@id = '{className}']")}";
@@ -38,7 +43,7 @@ namespace ParserHelper.HtmlDocumentExtension
                                  .SelectSingleNode(document.GetXPathByClassName(elementName, className))
                                  .InnerText;
 
-            return WebUtility.HtmlDecode(result);
+            return Regex.Replace(WebUtility.HtmlDecode(result), @"\s+", " ");
         }
 
         public static string GetAttribiuteValueByClassName(this HtmlDocument document, string elementName, string className, string attributeName)
@@ -48,6 +53,15 @@ namespace ParserHelper.HtmlDocumentExtension
                                  .Attributes[attributeName].Value;
 
             return WebUtility.HtmlDecode(result);
+        }
+
+        public static IEnumerable<HtmlNode> ElementWithoutChild(this HtmlNode node, string childElement)
+        {
+            foreach (HtmlNode childNode in node.ChildNodes)
+            {
+                if (childNode.Name == childElement && !childNode.HasChildNodes)
+                    yield return childNode;
+            }
         }
 
         public static string GetInnerTextById(this HtmlDocument document, string elementName, string id)
