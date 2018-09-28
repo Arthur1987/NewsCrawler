@@ -6,13 +6,6 @@ namespace NewsAmParser
 {
     public abstract class BaseParser
     {
-        protected AppSetting AppSetting { get; }
-
-        protected BaseParser(AppSetting appSetting)
-        {
-            AppSetting = appSetting;
-        }
-
-        public abstract IAsyncEnumerable<ResponseArticleModel> ParseAsync(NewsCategoryEnum category);
+        public abstract IAsyncEnumerable<ResponseArticleModel> ParseAsync(string baseAdress, string requestUri);
     }
 }

@@ -23,7 +23,9 @@ namespace RestApi.Net.Core.Http
 
         // Flag: Has Dispose already been called?
         private bool _disposed;
-        private HttpClient _client;
+        private int _redirectCount;
+        private const int MaxRedirectCount = 2;
+        private readonly HttpClient _client;
         private MediaType _contenType;
         private MediaType _acceptType;
         private JsonSerializerSettings _jsonSerializerSettings;
@@ -239,13 +241,21 @@ namespace RestApi.Net.Core.Http
         public async Task<string> GetContentAsStringAsync(string requestUri)
         {
             HttpResponseMessage response = null;
+
             try
             {
                 using (response = await _client.GetAsync(requestUri))
                 {
                     if (response.StatusCode == HttpStatusCode.Moved)
                     {
-                        return await GetContentAsStringAsync(response.RequestMessage.RequestUri.LocalPath);
+                        if (_redirectCount >= MaxRedirectCount)
+                        {
+                            throw new InvalidOperationException(
+                                $"Can not obtain data and cross thresh hold {MaxRedirectCount}");
+                        }
+
+                        _redirectCount++;
+                        return await GetContentAsStringAsync(response.Headers.Location.AbsolutePath);
                     }
 
                     using (var content = response.Content)
@@ -258,11 +268,6 @@ namespace RestApi.Net.Core.Http
                         }
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
             }
             finally
             {
